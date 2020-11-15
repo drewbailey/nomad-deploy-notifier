@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/api"
 	"github.com/slack-go/slack"
 )
@@ -17,10 +17,11 @@ type Config struct {
 }
 
 type Bot struct {
-	l       sync.Mutex
+	mu      sync.Mutex
 	chanID  string
 	api     *slack.Client
 	deploys map[string]string
+	L       hclog.Logger
 }
 
 func NewBot(cfg Config) (*Bot, error) {
@@ -40,15 +41,14 @@ func NewBot(cfg Config) (*Bot, error) {
 }
 
 func (b *Bot) UpsertDeployMsg(deploy api.Deployment) error {
-	b.l.Lock()
-	defer b.l.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
 	ts, ok := b.deploys[deploy.ID]
 	if !ok {
-		spew.Dump("NEW DEPLOY")
 		return b.initialDeployMsg(deploy)
 	}
-	spew.Dump("Existing deploy", ts)
+	b.L.Debug("Existing deployment found, updating status", "slack ts", ts)
 
 	attachments := DefaultAttachments(deploy)
 	opts := []slack.MsgOption{slack.MsgOptionAttachments(attachments...)}
@@ -58,7 +58,6 @@ func (b *Bot) UpsertDeployMsg(deploy api.Deployment) error {
 	if err != nil {
 		return err
 	}
-	spew.Dump("Potentially updating TS", ts)
 	b.deploys[deploy.ID] = ts
 
 	return nil
