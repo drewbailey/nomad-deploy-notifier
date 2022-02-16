@@ -15,8 +15,8 @@ func main() {
 }
 
 func realMain(args []string) int {
-	ctx, closer := CtxWithInterrupt(context.Background())
-	defer closer()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
 
 	token := os.Getenv("SLACK_TOKEN")
 	toChannel := os.Getenv("SLACK_CHANNEL")
@@ -36,26 +36,4 @@ func realMain(args []string) int {
 	stream.Subscribe(ctx, slackBot)
 
 	return 0
-}
-
-func CtxWithInterrupt(ctx context.Context) (context.Context, func()) {
-
-	ctx, cancel := context.WithCancel(ctx)
-
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		select {
-		case <-ch:
-			cancel()
-		case <-ctx.Done():
-			return
-		}
-	}()
-
-	return ctx, func() {
-		signal.Stop(ch)
-		cancel()
-	}
 }
