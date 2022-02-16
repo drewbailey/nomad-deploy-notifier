@@ -26,7 +26,7 @@ func realMain(args []string) int {
 		Channel: toChannel,
 	}
 
-	stream := stream.NewStream(stream.Config{})
+	stream := stream.NewStream()
 
 	slackBot, err := bot.NewBot(slackCfg)
 	if err != nil {
